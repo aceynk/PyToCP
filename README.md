@@ -6,16 +6,16 @@ PyToCP is a python module aiming to simplify Content Patcher content pack creati
 
 This started as and, as of writing this, continues to be a personal project. It will be maintained to my needs. 
 That being said, feel free to write up issues and pull requests! I'll likely see them.
+<br>
 
 This module writes mods for Content Patcher, which is for the game Stardew Valley. You should probably have both if you choose to use this.
-
+<br>
 Content Patcher (CP) is a Mod for Stardew Valley that allows editing of game data with json files.
 
 CP can be found here: https://www.nexusmods.com/stardewvalley/mods/1915
 
-CP is open source: https://github.com/Pathoschild/StardewMods/tree/stable/ContentPatcher
-
-
+CP is open source: https://github.com/Pathoschild/StardewMods/tree/stable/ContentPatcher  
+<br>
 
 Stardew Valley (SDV) is a video game made by Concerned Ape.
 
