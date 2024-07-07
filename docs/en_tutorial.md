@@ -191,7 +191,7 @@ This class is initialized with 8 optional arguments:
 (See: https://github.com/Pathoschild/StardewMods/blob/develop/ContentPatcher/docs/author-guide.md)
 
 * ``entry_id`` (str) : The entry id (or, really, the entry key [when accessing a dictionary])
-* ``entry`` (EntryDict|JsonTypes) : The data necessay for the edit. Usually is a dictionary of some sort, but can be any Json serializable value.
+* ``entry`` (EntryDict|JsonTypes) : The data necessary for the edit. Usually is a dictionary of some sort, but can be any Json serializable value.
 * ``action`` (str) : The action is the type of edit for Content Patcher to perform.
 * ``target`` (str|list[str]) : The target data file.
 * ``targetfield`` (list[str]) : The fields to target within the specified data file.
@@ -280,7 +280,7 @@ This method registers Entry objects with the file.
 ``pytocp.Entry_Curry`` takes 9 arguments:
 
 * ``entry_id`` (str) : The entry id (or, really, the entry key [when accessing a dictionary])
-* ``entry`` (EntryDict|JsonTypes) : The data necessay for the edit. Usually is a dictionary of some sort, but can be any Json serializable value.
+* ``entry`` (EntryDict|JsonTypes) : The data necessary for the edit. Usually is a dictionary of some sort, but can be any Json serializable value.
 * ``action`` (str) : The action is the type of edit for Content Patcher to perform.
 * ``target`` (str|list[str]) : The target data file.
 * ``targetfield`` (list[str]) : The fields to target within the specified data file.
