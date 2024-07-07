@@ -6,9 +6,11 @@ Important contents:
 
     (class) Entry
 
-    (global bool) PREFIX_WITH_MODID
+    (class) ContentFile
+    
+    (function) Entry_Curry
 
-    (global Mod) MOD
+    (global Mod) _MOD
 """
 
 from os.path import abspath, join, basename, split
