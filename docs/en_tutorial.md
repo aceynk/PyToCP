@@ -277,7 +277,7 @@ This method registers Entry objects with the file.
 
 "Curries" Entry objects and allows for reusing argument values across multiple objects. 
 
-``pytocp.Entry_Curry`` takes 7 arguments:
+``pytocp.Entry_Curry`` takes 9 arguments:
 
 * ``entry_id`` (str) : The entry id (or, really, the entry key [when accessing a dictionary])
 * ``entry`` (EntryDict|JsonTypes) : The data necessay for the edit. Usually is a dictionary of some sort, but can be any Json serializable value.
