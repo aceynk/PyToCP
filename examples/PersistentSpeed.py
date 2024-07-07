@@ -18,7 +18,7 @@ m: Mod = Mod(
     ]
 )
 
-m.output_fp = "../steamcommon/Stardew Valley/Mods"
+m.output_fp = "~/.local/share/Steam/steamapps/common/Stardew Valley/Mods"
 
 PersistentSpeed = Entry(
     entry_id = "_PersistentSpeed",
