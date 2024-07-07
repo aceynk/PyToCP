@@ -15,6 +15,8 @@ CP can be found here: https://www.nexusmods.com/stardewvalley/mods/1915
 
 CP is open source: https://github.com/Pathoschild/StardewMods/tree/stable/ContentPatcher
 
+
+
 Stardew Valley (SDV) is a video game made by Concerned Ape.
 
 Information can be found here: https://www.stardewvalley.net/
