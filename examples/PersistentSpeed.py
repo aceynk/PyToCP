@@ -3,7 +3,6 @@ A mod to make carrots give a persistent and long-lasting speed buff, using PyToC
 """
 
 from pytocp import Mod, Entry
-import pytocp
 
 m: Mod = Mod(
     name = "PersistentSpeed",
@@ -42,7 +41,7 @@ PB_Entry = Entry(
     target = "aceynk.PersistentBuffs/PersistentBuffIds"
 )
 
-pytocp.PREFIX_WITH_MODID = False
+m.PREFIX_WITH_MODID = False
 
 Carrot = Entry(
     entry_id = "Buffs",
