@@ -10,10 +10,13 @@ That being said, feel free to write up issues and pull requests! I'll likely see
 This module writes mods for Content Patcher, which is for the game Stardew Valley. You should probably have both if you choose to use this.
 
 Content Patcher (CP) is a Mod for Stardew Valley that allows editing of game data with json files.
+
 CP can be found here: https://www.nexusmods.com/stardewvalley/mods/1915
+
 CP is open source: https://github.com/Pathoschild/StardewMods/tree/stable/ContentPatcher
 
-Stardew Valley (SDV) is a video game made by Concerned Ape
+Stardew Valley (SDV) is a video game made by Concerned Ape.
+
 Information can be found here: https://www.stardewvalley.net/
 
 # Install
@@ -43,13 +46,17 @@ https://github.com/aceynk/PyToCP/blob/main/docs/en_tutorial.md
 # Resources
 
 The Stardew Valley Wiki is a great resource for learning how to mod.
+
 https://stardewvalleywiki.com/Modding:Index
 
 XnbHack is useful for extracting game data.
+
 https://github.com/Pathoschild/StardewXnbHack/releases
 
 ILSpy is useful for decompiling the base game in order to better mod with SMAPI.
+
 https://github.com/icsharpcode/ILSpy
 
 Personally, I use this cross-platform fork:
+
 https://github.com/icsharpcode/AvaloniaILSpy/releases
