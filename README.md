@@ -38,7 +38,7 @@ export PYTHONPATH=path/to/module/src:$PYTHONPATH
 
 Module documentation can be found here:
 
-https://github.com/aceynk/PyToCP/blob/main/docs/en_doc.md
+https://github.com/aceynk/PyToCP/blob/main/docs/en_tutorial.md
 
 # Resources
 
