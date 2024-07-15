@@ -15,10 +15,11 @@ Important contents:
 
 from os.path import abspath, join, basename, split
 from os import mkdir, chdir
-from typing import Any, Callable
+from typing import Any
 from shutil import rmtree, copyfile
 from copy import deepcopy
 from inspect import stack
+from requests import get
 import json
 
 JsonTypes = str|int|list[Any]|dict[Any]
@@ -75,6 +76,9 @@ def _new_replace(x, y):
 def _adv_dict_merge(dict1, dict2):
     dict1 = deepcopy(dict1)
 
+    if not isinstance(dict1, dict) or not isinstance(dict2, dict):
+        return _new_replace(dict2, dict1)
+
     for key in dict2:
         if isinstance(dict2[key], str) or isinstance(dict2[key], int):
             dict1[key] = dict2[key]
@@ -119,7 +123,7 @@ class Entry:
             targetfield: list[str] = None,
             fromfile: str|list[str] = None,
             priority: str = None,
-            moveentries: list[dict[str, JsonTypes]] = None
+            moveentries: list[dict[str, JsonTypes]] = []
         ):
         """A Content Patcher entry, represented as a Python object.
 
@@ -145,6 +149,8 @@ class Entry:
         self.priority = priority
         self.moveentries = moveentries
 
+        self.file = ""
+
         if isinstance(target, list):
             self.target = ", ".join(target)
         else:
@@ -161,6 +167,27 @@ class Entry:
             _MOD.Register(self)
 
 
+class ContentFile:
+    def __init__(self, file_name: str, *entries: Entry):
+        self.name = file_name
+        self.entries = {}
+        self.moveentries = {}
+        self.Register(*entries)
+
+        if _MOD.AUTO_REGISTER:
+            _MOD.RegisterContentFile(self)
+
+    def Register(self, *entries: Entry):
+        for entry in entries:
+            if not entry.hash in self.entries:
+                self.entries[entry.hash] = {}
+            self.entries[entry.hash][entry.entry_id] = entry.entry
+
+            if not entry.hash in self.moveentries:
+                self.moveentries[entry.hash] = []
+            self.moveentries[entry.hash] += entry.moveentries
+
+
 def Entry_Curry(
         entry_id: str = "",
         entry: EntryDict = {},
@@ -170,7 +197,8 @@ def Entry_Curry(
         fromfile: str|list[str] = None,
         priority: str = None,
         moveentries: list[dict[str, JsonTypes]] = [],
-        to_curry: Any = Entry
+        to_curry: Any = Entry,
+        register_with: ContentFile = None
     ):
 
     c_entry_id = entry_id
@@ -193,7 +221,7 @@ def Entry_Curry(
             moveentries: list[dict[str, JsonTypes]] = []
         ) -> Entry|Any:
 
-        return to_curry(
+        out = to_curry(
             entry_id = _new_replace(entry_id, c_entry_id),
             entry = _adv_dict_merge(c_entry, entry),
             action = _new_replace(action, c_action),
@@ -204,16 +232,20 @@ def Entry_Curry(
             moveentries = _new_replace(moveentries, c_moveentries)
         )
 
+        if not register_with is None:
+            register_with.Register(out)
+
+        return out
+
     return _curried_entry
 
 
-class ContentFile:
-    def __init__(self, file_name: str, entries: list[Entry] = []):
-        self.name = file_name
-        self.entries = entries
+def reload_SMAPI():
+    ## Only if WebServerCommands is installed and enabled. ##
 
-    def Register(self, entries: Entry|list[Entry]):
-        self.entries += [entries] if isinstance(entries, Entry) else entries
+    WebServerCommandsURL = "http://127.0.0.1:56802/execute"
+
+    get(WebServerCommandsURL + f"?command=patch reload {_MOD.manifest['UniqueId']}")
 
 
 class Mod:
@@ -313,6 +345,7 @@ class Mod:
         """Whether or not to prefix entry_id values passed with "{{ModID}}"."""
         self.AUTO_REGISTER: bool = True
         """Whether to automatically register new Entry objects."""
+        self.AUTO_RELOAD: bool = False
 
     
     def i18n(self, key: str) -> str:
@@ -386,8 +419,8 @@ class Mod:
 
             Args:
                 name (str|None): 
-                subdir (str, optional): _description_. Defaults to None.
-                fp (str, optional): _description_. Defaults to None.
+                subdir (str, optional): Within the main mod, the subfolder to write to. Defaults to None.
+                fp (str, optional): The base file path to write to. Defaults to None.
 
             Returns:
                 Any|function: Either the opened file to be written to, or a lambda currying ``subdir``.
@@ -404,9 +437,65 @@ class Mod:
             except Exception as e:
                 print(f"Couldn't write manifest.json with error: {e}")
 
+        
+        if len(self.files) > 0:
+            for odir in self.output_fp:
+                trymkdir(join(odir, dirname, "code"), "code")
+
+
+        content_load_string = []
+
+        
+        for contentfile in self.files:
+            content_load_string.append(f"code/{contentfile.name}.json")
+
+            file_content = [
+                {
+                    change_data[0]: change_data[1]
+                    for change_data in self._hash_lookup[hash_key].items()
+                    if not change_data[1] is None
+                }
+                | {"uid": hash_key}
+                for hash_key in contentfile.entries.keys()
+            ]
+
+            for fchange in file_content:
+                fcur_id = fchange["uid"]
+                fchange.pop("uid")
+
+                for fc_key in [*fchange.keys()]:
+                    if not fchange[fc_key]:
+                        fchange.pop(fc_key)
+
+                if not contentfile.entries[fcur_id] is None:
+                    fchange["Entries"] = contentfile.entries[fcur_id]
+
+                if fcur_id in contentfile.moveentries.keys() and not contentfile.moveentries[fcur_id] == []:
+                    fchange["MoveEntries"] = contentfile.moveentries[fcur_id]
+
+            for odir in self.output_fp:
+                try:
+                    writefile(contentfile.name, "code", odir)\
+                        .write(json.dumps({"Changes": file_content}, indent=4))
+                except:
+                    print(f"Couldn't write the \"{contentfile.name}\" Content File.")
+
+
+        if len(self.files) > 0:
+            prev_aRegister = deepcopy(self.AUTO_REGISTER)
+            self.AUTO_REGISTER = True
+
+            Entry(
+                action = "Include",
+                fromfile = content_load_string
+            )
+
+            self.AUTO_REGISTER = prev_aRegister
+
+
         content: list[dict[str: str|int]] = [
             {
-                change_data[0].title(): change_data[1]
+                change_data[0]: change_data[1]
                 for change_data in self._hash_lookup[hash_key].items()
                 if not change_data[1] is None
             }
@@ -416,6 +505,7 @@ class Mod:
 
         for change in content:
             cur_id = change["uid"]
+            change.pop("uid")
 
             for c_key in [*change.keys()]:
                 if not change[c_key]:
@@ -424,10 +514,8 @@ class Mod:
             if not self.entries[cur_id] is None:
                 change["Entries"] = self.entries[cur_id]
 
-            if cur_id in self.moveentries.keys() and not self.moveentries[cur_id] is None:
+            if cur_id in self.moveentries.keys() and not self.moveentries[cur_id] == []:
                 change["MoveEntries"] = self.moveentries[cur_id]
-
-            change.pop("uid")
 
         for odir in self.output_fp:
             try:
@@ -452,6 +540,12 @@ class Mod:
 
 
         print(f"Successfully compiled \"{self.manifest['Name']}\" at {', '.join([join(x, dirname) for x in self.output_fp])}!")
+
+        if self.AUTO_RELOAD:
+            try:
+                reload_SMAPI()
+            except Exception as e:
+                print(f"Failed to reload contact pack with {e.__class__.__name__}")
 
 
     def Destroy(self):
