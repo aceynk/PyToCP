@@ -254,7 +254,7 @@ def Entry_Curry(
             fromfile: "str|list[str]" = None,
             priority: str = None,
             moveentries: list[dict[str, JsonTypes]] = []
-        ) -> "Entry|Any"":
+        ) -> "Entry|Any":
 
         out = to_curry(
             entry_id = _new_replace(entry_id, c_entry_id),
