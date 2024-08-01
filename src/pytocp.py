@@ -15,16 +15,18 @@ Important contents:
 
 from os.path import abspath, join, basename, split
 from os import mkdir, chdir
-from typing import Any
+from typing import Any, NewType
 from shutil import rmtree, copyfile
 from copy import deepcopy
 from inspect import stack
 from requests import get
+from helper import rec_trav, dict_tree
+import re
 import json
 
-JsonTypes = str|int|list[Any]|dict[Any]
+JsonTypes = NewType("JsonTypes","str|int|list[Any]|dict[Any]")
 """Types that json supports."""
-EntryDict = dict[str, list[JsonTypes]]
+EntryDict = NewType("EntryDict","dict[str, list[JsonTypes]]")
 """Type for the Entry Content Patcher field."""
 
 _MOD = None
@@ -44,7 +46,7 @@ def _hash_entry(action: str, target: str, targetfield: list, fromfile: str, prio
     Returns:
         int: A hash value for the entry target data.
     """
-    def else_to_string(value: str|list|None):
+    def else_to_string(value: "str|list|None"):
         """Internal method
         """
         if isinstance(value, str):
@@ -67,14 +69,47 @@ def _hash_entry(action: str, target: str, targetfield: list, fromfile: str, prio
     return this_hash
 
 
-def _new_replace(x, y):
-    if not y:
-        return x
-    else: return y
+_new_replace = lambda x, y : y if y else x
 
+
+def eval_entry(entry):
+    if _MOD.unpacked_content_fp is None:
+        return
+    
+    if not entry.action == "EditData":
+        return
+    
+    directory = re.split(r"\\|/", entry.target)
+    
+    fp = join(_MOD.unpacked_content_fp, *directory[:-1], directory[-1] + ".json")
+	
+    try:
+        file = json.load(open(fp, "r"))
+    except FileNotFoundError:
+        print(f'Could not find data file {directory[-1] + ".json"}.')
+        return
+    except:
+        print(f"An unknown error occurred when finding data file.")
+        return
+	
+    if isinstance(file, list):
+        return entry.entry
+	
+    base_dict = rec_trav(file, entry.targetfield)
+	
+    base_dict[entry.entry_id] = entry.entry
+	
+    if entry.targetfield == []:
+        return {entry.entry_id : entry.entry}
+    else:
+        return dict_tree(entry.targetfield, base_dict)
+    
 
 def _adv_dict_merge(dict1, dict2):
     dict1 = deepcopy(dict1)
+    
+    if not isinstance(dict1, dict) or not isinstance(dict2, dict):
+        return _new_replace(dict2, dict1)
 
     if not isinstance(dict1, dict) or not isinstance(dict2, dict):
         return _new_replace(dict2, dict1)
@@ -117,11 +152,11 @@ class Entry:
     def __init__(
             self,
             entry_id: str = "",
-            entry: EntryDict|JsonTypes = None,
+            entry: "EntryDict|JsonTypes" = None,
             action: str = None,
-            target: str|list[str] = None,
-            targetfield: list[str] = None,
-            fromfile: str|list[str] = None,
+            target: "str|list[str]" = None,
+            targetfield: list[str] = [],
+            fromfile: "str|list[str]" = None,
             priority: str = None,
             moveentries: list[dict[str, JsonTypes]] = []
         ):
@@ -148,6 +183,8 @@ class Entry:
         self.entry = entry
         self.priority = priority
         self.moveentries = moveentries
+        
+        self.file = ""
 
         self.file = ""
 
@@ -165,6 +202,28 @@ class Entry:
 
         if _MOD.AUTO_REGISTER:
             _MOD.Register(self)
+            
+        log = eval_entry(self)
+        if not log is None:
+            print(json.dumps(log, indent=4))
+
+
+class ContentFile:
+    def __init__(self, file_name: str, *entries: Entry):
+        self.name = file_name
+        self.entries = {}
+        self.moveentries = {}
+        self.Register(*entries)
+
+    def Register(self, *entries: Entry):
+        for entry in entries:
+            if not entry.hash in self.entries:
+                self.entries[entry.hash] = {}
+            self.entries[entry.hash][entry.entry_id] = entry.entry
+            
+            if not entry.hash in self.moveentries:
+                self.moveentries[entry.hash] = []
+            self.moveentries[entry.hash] += entry.moveentries
 
 
 class ContentFile:
@@ -192,9 +251,9 @@ def Entry_Curry(
         entry_id: str = "",
         entry: EntryDict = {},
         action: str = None,
-        target: str|list[str] = None,
-        targetfield: list[str] = None,
-        fromfile: str|list[str] = None,
+        target: "str|list[str]" = None,
+        targetfield: list[str] = [],
+        fromfile: "str|list[str]" = None,
         priority: str = None,
         moveentries: list[dict[str, JsonTypes]] = [],
         to_curry: Any = Entry,
@@ -214,9 +273,9 @@ def Entry_Curry(
             entry_id: str = "",
             entry: EntryDict = {},
             action: str = None,
-            target: str|list[str] = None,
+            target: "str|list[str]" = None,
             targetfield: list[str] = None,
-            fromfile: str|list[str] = None,
+            fromfile: "str|list[str]" = None,
             priority: str = None,
             moveentries: list[dict[str, JsonTypes]] = []
         ) -> Entry|Any:
@@ -231,6 +290,11 @@ def Entry_Curry(
             priority = _new_replace(priority, c_priority),
             moveentries = _new_replace(moveentries, c_moveentries)
         )
+        
+        if not register_with is None:
+            register_with.Register(out)
+            
+        return out
 
         if not register_with is None:
             register_with.Register(out)
@@ -241,10 +305,10 @@ def Entry_Curry(
 
 
 def reload_SMAPI():
-    ## Only if WebServerCommands is installed and enabled. ##
-
+    ## only if WebServerCommands is installed and enabled. ##
+    
     WebServerCommandsURL = "http://127.0.0.1:56802/execute"
-
+    
     get(WebServerCommandsURL + f"?command=patch reload {_MOD.manifest['UniqueId']}")
 
 
@@ -293,7 +357,7 @@ class Mod:
         }
         """Internal dict for the __setattr__ monkeypatch."""
         
-        self.manifest: dict[str, str|list[str]|dict[str,str]] = {
+        self.manifest: "dict[str, str|list[str]|dict[str,str]]" = {
             "Name": name,
             "Author": author,
             "Version": version,
@@ -346,7 +410,16 @@ class Mod:
         self.AUTO_REGISTER: bool = True
         """Whether to automatically register new Entry objects."""
         self.AUTO_RELOAD: bool = False
+        """Whether to automatically attempt to reload the mod in SMAPI. Requires WebServerCommands installed and running."""
+        
+        self._logged = set()
 
+
+    def _log_once(self, msg: str) -> None:
+        if not hash(msg) in self._logged:
+            print(msg)
+            self._logged |= {hash(msg)}
+            
     
     def i18n(self, key: str) -> str:
         """Returns the i18n reference token for the given key.
@@ -401,9 +474,9 @@ class Mod:
             """
             try: mkdir(path)
             except IsADirectoryError:
-                print(f"Skipping creating {folder_name} folder - folder already exists.")
+                self._log_once(f"Skipping creating {folder_name} folder - folder already exists.")
             except FileExistsError:
-                print(f"Skipping creating {folder_name} folder - folder already exists.")
+                self._log_once(f"Skipping creating {folder_name} folder - folder already exists.")
             except FileNotFoundError:
                 print("Invalid filepath.")
             except Exception as e:
@@ -423,7 +496,7 @@ class Mod:
                 fp (str, optional): The base file path to write to. Defaults to None.
 
             Returns:
-                Any|function: Either the opened file to be written to, or a lambda currying ``subdir``.
+                Any: Either the opened file to be written to, or a lambda currying ``subdir``.
             """
             if not subdir is None and name is None:
                 return lambda x : writefile(x, subdir)
@@ -433,9 +506,61 @@ class Mod:
         for odir in self.output_fp:
             try:
                 writefile("manifest", fp=odir).write(json.dumps(self.manifest, indent=4))
-                print("Successfully wrote manifest.json")
+                self._log_once("Successfully wrote manifest.json")
             except Exception as e:
                 print(f"Couldn't write manifest.json with error: {e}")
+                
+        if len(self.files) > 0:
+            for odir in self.output_fp:
+                trymkdir(join(odir, dirname, "code"), "code")
+                
+        content_load_string = []
+        
+        for contentfile in self.files:
+            content_load_string.append(f"code/{contentfile.name}.json")
+            
+            file_content = [
+                {
+                    change_data[0]: change_data[1]
+                    for change_data in self._hash_lookup[hash_key].items()
+                    if not change_data is None
+                }
+                | {"uid": hash_key}
+                for hash_key in contentfile.entries.keys()
+            ]
+            
+            for fchange in file_content:
+                fcur_id = fchange["uid"]
+                fchange.pop("uid")
+                
+                for fc_key in [*fchange.keys()]:
+                    if not fchange[fc_key]:
+                        fchange.pop(fc_key)
+                        
+                if not contentfile.entries[fcur_id] is None:
+                    fchange["Entries"] = contentfile.entries[fcur_id]
+                    
+                if fcur_id in contentfile.moveentries.keys() and not contentfile.moveentries[fcur_id] == []:
+                    fchange["MoveEntries"] = contentfile.moveentries[fcur_id]
+                
+            for odir in self.output_fp:
+                try:
+                    writefile(contentfile.name, "code", odir)\
+                        .write(json.dumps({"Changes": file_content}, indent=4))
+                except:
+                    print(f"Couldn't write the \"{contentfile.name}\" Content File.")
+                
+            
+        if len(self.files) > 0:
+            prev_aRegister = deepcopy(self.AUTO_REGISTER)
+            self.AUTO_REGISTER = True
+            
+            Entry(
+                action = "Include",
+                fromfile = content_load_string
+            )
+            
+            self.AUTO_REGISTER = prev_aRegister
 
         
         if len(self.files) > 0:
@@ -521,25 +646,31 @@ class Mod:
             try:
                 writefile("content", fp=odir)\
                     .write(json.dumps({"Format":"2.2.0","Changes":content}, indent=4))
-                print("Successfully wrote content.json")
+                self._log_once("Successfully wrote content.json")
             except Exception as e:
                 print(f"Couldn't write content.json with error: {e}")
 
 
-        for odir in self.output_fp:
-            trymkdir(join(odir, dirname, "i18n"), "i18n")
-
-        
-        for locale in self.i18n_internal:
+        if len(self.i18n_internal.keys()) != 0:
             for odir in self.output_fp:
-                try:
-                    writefile(join("i18n", locale), fp=odir)\
+                trymkdir(join(odir, dirname, "i18n"), "i18n")
+            for locale in self.i18n_internal:
+                for odir in self.output_fp:
+                    try:
+                        writefile(join("i18n", locale), fp=odir)\
                         .write(json.dumps(self.i18n_internal[locale], indent=4))
-                except Exception as e:
-                    print(f"Couldn't write {locale}.json with error: {e}")
+                    except Exception as e:
+                        print(f"Couldn't write {locale}.json with error: {e}")
 
 
         print(f"Successfully compiled \"{self.manifest['Name']}\" at {', '.join([join(x, dirname) for x in self.output_fp])}!")
+        
+        if self.AUTO_RELOAD:
+            try:
+                reload_SMAPI()
+            except Exception as e:
+                print(f"Failed to reload content pack with {e.__class__.__name__}")
+                
 
         if self.AUTO_RELOAD:
             try:
@@ -553,7 +684,7 @@ class Mod:
         """
         success = True
 
-        def fail():
+        def fail(_,__,___):
             nonlocal success
             success = False
 
@@ -584,17 +715,19 @@ class Mod:
             try:
                 mkdir(join(odir, self.dirname, "assets"))
             except IsADirectoryError:
-                "skip making assets dir"
+                self._log_once("Skipping making assets folder - already exists")
             except FileExistsError:
-                "skip making assets dir"
+                print("Failed to write assets folder.")
             except FileNotFoundError:
-                "skip making assets dir"
+                print("Invalid directory passed.")
+            except Exception as e:
+                print(f"An unknown error occured: {e}")
 
         for odir in self.output_fp:
             try:
                 copyfile(fp, join(odir, self.dirname, "assets", basename(fp)))
             except Exception as e:
-                print(f"Failed to add asset ({fp}) to mod with {e.__class__.__name__}. Using directory: {abspath(fp)}.")
+                self._log_once(f"Failed to add asset ({fp}) to mod with {e.__class__.__name__}. Using directory: {abspath(fp)}.")
 
         return Entry(
             action = "Load",
