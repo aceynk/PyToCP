@@ -111,9 +111,6 @@ def _adv_dict_merge(dict1, dict2):
     if not isinstance(dict1, dict) or not isinstance(dict2, dict):
         return _new_replace(dict2, dict1)
 
-    if not isinstance(dict1, dict) or not isinstance(dict2, dict):
-        return _new_replace(dict2, dict1)
-
     for key in dict2:
         if isinstance(dict2[key], str) or isinstance(dict2[key], int):
             dict1[key] = dict2[key]
@@ -226,27 +223,6 @@ class ContentFile:
             self.moveentries[entry.hash] += entry.moveentries
 
 
-class ContentFile:
-    def __init__(self, file_name: str, *entries: Entry):
-        self.name = file_name
-        self.entries = {}
-        self.moveentries = {}
-        self.Register(*entries)
-
-        if _MOD.AUTO_REGISTER:
-            _MOD.RegisterContentFile(self)
-
-    def Register(self, *entries: Entry):
-        for entry in entries:
-            if not entry.hash in self.entries:
-                self.entries[entry.hash] = {}
-            self.entries[entry.hash][entry.entry_id] = entry.entry
-
-            if not entry.hash in self.moveentries:
-                self.moveentries[entry.hash] = []
-            self.moveentries[entry.hash] += entry.moveentries
-
-
 def Entry_Curry(
         entry_id: str = "",
         entry: EntryDict = {},
@@ -278,7 +254,7 @@ def Entry_Curry(
             fromfile: "str|list[str]" = None,
             priority: str = None,
             moveentries: list[dict[str, JsonTypes]] = []
-        ) -> Entry|Any:
+        ) -> "Entry|Any"":
 
         out = to_curry(
             entry_id = _new_replace(entry_id, c_entry_id),
@@ -294,11 +270,6 @@ def Entry_Curry(
         if not register_with is None:
             register_with.Register(out)
             
-        return out
-
-        if not register_with is None:
-            register_with.Register(out)
-
         return out
 
     return _curried_entry
@@ -439,7 +410,6 @@ class Mod:
         for entry in entries:
             if entry.entry is None:
                 self.entries[entry.hash] = None
-                continue
             elif not entry.hash in self.entries:
                 self.entries[entry.hash] = {entry.entry_id: entry.entry}
             else:
@@ -448,7 +418,6 @@ class Mod:
 
             if entry.moveentries is None:
                 self.moveentries[entry.hash] = None
-                continue
             elif not entry.hash in self.moveentries:
                 self.moveentries[entry.hash] = entry.moveentries
             else:
