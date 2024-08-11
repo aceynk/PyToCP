@@ -215,27 +215,6 @@ class ContentFile:
 
     def Register(self, *entries: Entry):
         for entry in entries:
-            if _MOD.LOGGING:
-                log(
-                    f"## {_MOD._log_index} (Register with Content File):",
-                    f"Registered entry with ``{self.name}.json``:","",
-                    f"Action: {entry.action}",
-                    f"Target: {entry.target}",
-                    f"TargetField: {entry.targetfield}",
-                    f"Id: {entry.entry_id}",
-                    f"FromFile: {entry.entry_id}",
-                    f"Priority: {entry.priority}",
-                    f"MoveEntries:",
-                    "```",
-                    json.dumps(entry.moveentries, indent=4),
-                    "```",
-                    f"Entry:",
-                    "```",
-                    json.dumps(entry.entry, indent=4),
-                    "```"
-                )
-
-                _MOD._log_index += 1
 
             if not entry.hash in self.entries:
                 self.entries[entry.hash] = {}
@@ -349,45 +328,11 @@ class Mod:
 
         Mod.__setattr__ = _setattr_prefix(self, self.__setattr__)
 
-        def _logging_init(v):
-            self._log_file = ""
-            """Internal log file content."""
-            self._log_index = 0
-            """Internal log index."""
-
-            log(
-                f"# Log file: {self.manifest['Name']}","",
-                f"## {self._log_index} (Manifest):",
-                "Created manifest:","",
-                "```",
-                json.dumps(self.manifest, indent=4),
-                "```"
-            )
-
-            self._log_index += 1
-
-            return v
-
-        def _log_i18n(v):
-            if self.LOGGING:
-                log(
-                    f"## {self._log_index}:",
-                    "Created i18n:","",
-                    "```",
-                    json.dumps(self.i18n_internal, indent=4),
-                    "```"
-                )
-
-            self._log_index += 1
-
-            return v
-
         _extra: dict[str, function[Any, Any]] = {
             "unpacked_content_fp": 
             lambda v : abspath(v),
             "output_fp":
-            lambda v : [abspath(x) for x in v] if v != [""] else [abspath("")],
-            "LOGGING": _logging_init
+            lambda v : [abspath(x) for x in v] if v != [""] else [abspath("")]
         }
         """Internal dict for the __setattr__ monkeypatch."""
         
@@ -472,26 +417,6 @@ class Mod:
         """
 
         for entry in entries:
-            if self.LOGGING:
-                log(
-                    f"## {self._log_index} (Register Entry):",
-                    "Registered entry with ``content.json``:","",
-                    f"Action: {entry.action}",
-                    f"Target: {entry.target}",
-                    f"TargetField: {entry.entry}",
-                    f"Id: {entry.entry_id}",
-                    f"FromFile: {entry.fromfile}",
-                    f"Priority: {entry.priority}",
-                    f"MoveEntries:",
-                    "```",
-                    json.dumps(entry.moveentries, indent=4),
-                    "```",
-                    "```",
-                    json.dumps(entry.entry, indent=4),
-                    "```"
-                )
-
-                self._log_index += 1
 
             if entry.entry is None:
                 self.entries[entry.hash] = None
@@ -529,10 +454,6 @@ class Mod:
             try: 
                 mkdir(path)
                 
-                if self.LOGGING:
-                    log(f"## {self._log_index} (Folder Write):", f"Wrote {folder_name} folder.")
-
-                    self._log_index += 1
             except IsADirectoryError:
                 self._log_once(f"Skipping creating {folder_name} folder - folder already exists.")
             except FileExistsError:
@@ -558,11 +479,6 @@ class Mod:
             Returns:
                 Any: Either the opened file to be written to, or a lambda currying ``subdir``.
             """
-
-            if self.LOGGING:
-                log(f"## {self._log_index} (File Write):", f"Wrote {name}.json at {join(fp, dirname, '' if subdir is None else subdir, name + '.json')}")
-
-                self._log_index += 1
             
             return open(join(fp, dirname, "" if subdir is None else subdir, name + ".json"), "w")
 
@@ -795,12 +711,4 @@ class Mod:
 
 
     def RegisterContentFile(self, file: ContentFile):
-        if self.LOGGING:
-            log(
-                f"## {self._log_index} (Register Content File):",
-                f"Content file named \"{file.name}\" registered with {len(file.entries)} entries."
-            )
-
-            self._log_index += 1
-
         self.files.append(file)
