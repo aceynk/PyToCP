@@ -20,6 +20,7 @@ from shutil import rmtree, copyfile
 from copy import deepcopy
 from inspect import stack
 from requests import get
+from time import perf_counter
 import json
 
 JsonTypes = str|int|list[Any]|dict[Any]
@@ -179,6 +180,28 @@ class ContentFile:
 
     def Register(self, *entries: Entry):
         for entry in entries:
+            if _MOD.LOGGING:
+                log(
+                    f"## {_MOD._log_index} (Register with Content File):",
+                    f"Registered entry with ``{self.name}.json``:","",
+                    f"Action: {entry.action}",
+                    f"Target: {entry.target}",
+                    f"TargetField: {entry.targetfield}",
+                    f"Id: {entry.entry_id}",
+                    f"FromFile: {entry.entry_id}",
+                    f"Priority: {entry.priority}",
+                    f"MoveEntries:",
+                    "```",
+                    json.dumps(entry.moveentries, indent=4),
+                    "```",
+                    f"Entry:",
+                    "```",
+                    json.dumps(entry.entry, indent=4),
+                    "```"
+                )
+
+                _MOD._log_index += 1
+
             if not entry.hash in self.entries:
                 self.entries[entry.hash] = {}
             self.entries[entry.hash][entry.entry_id] = entry.entry
@@ -248,6 +271,10 @@ def reload_SMAPI():
     get(WebServerCommandsURL + f"?command=patch reload {_MOD.manifest['UniqueId']}")
 
 
+def log(*string: tuple[str]):
+    _MOD._log_file += "\n".join(string) + "\n"*2
+
+
 class Mod:
     def __init__(
         self,
@@ -261,6 +288,8 @@ class Mod:
         contentpack_for: str = "Pathoschild.ContentPatcher",
         dependencies: list[dict[str, str]] = None
         ):
+
+        self._start = perf_counter()
 
         def _setattr_prefix(self, func):
             """Internal wrapping method.
@@ -285,11 +314,45 @@ class Mod:
 
         Mod.__setattr__ = _setattr_prefix(self, self.__setattr__)
 
+        def _logging_init(v):
+            self._log_file = ""
+            """Internal log file content."""
+            self._log_index = 0
+            """Internal log index."""
+
+            log(
+                f"# Log file: {self.manifest['Name']}","",
+                f"## {self._log_index} (Manifest):",
+                "Created manifest:","",
+                "```",
+                json.dumps(self.manifest, indent=4),
+                "```"
+            )
+
+            self._log_index += 1
+
+            return v
+
+        def _log_i18n(v):
+            if self.LOGGING:
+                log(
+                    f"## {self._log_index}:",
+                    "Created i18n:","",
+                    "```",
+                    json.dumps(self.i18n_internal, indent=4),
+                    "```"
+                )
+
+            self._log_index += 1
+
+            return v
+
         _extra: dict[str, function[Any, Any]] = {
             "unpacked_content_fp": 
             lambda v : abspath(v),
             "output_fp":
-            lambda v : [abspath(x) for x in v] if v != [""] else [abspath("")]
+            lambda v : [abspath(x) for x in v] if v != [""] else [abspath("")],
+            "LOGGING": _logging_init
         }
         """Internal dict for the __setattr__ monkeypatch."""
         
@@ -346,8 +409,11 @@ class Mod:
         self.AUTO_REGISTER: bool = True
         """Whether to automatically register new Entry objects."""
         self.AUTO_RELOAD: bool = False
+        """Whether or not to automatically reload the mod through SMAPI. Requires the WebServerCommands mod (and SMAPI running)."""
+        self.LOGGING: bool = False
+        """Whether or not to create a log file alongside the mod."""
 
-    
+
     def i18n(self, key: str) -> str:
         """Returns the i18n reference token for the given key.
 
@@ -357,13 +423,36 @@ class Mod:
         Returns:
             str: The reference token for the i18n key.
         """
+
         return "{{i18n:" + key + "}}"
 
 
     def Register(self, *entries: Entry) -> None:
         """Registers Entry objects with the mod. (also see: pytocp.AUTO_REGISTER)
         """
+
         for entry in entries:
+            if self.LOGGING:
+                log(
+                    f"## {self._log_index} (Register Entry):",
+                    "Registered entry with ``content.json``:","",
+                    f"Action: {entry.action}",
+                    f"Target: {entry.target}",
+                    f"TargetField: {entry.entry}",
+                    f"Id: {entry.entry_id}",
+                    f"FromFile: {entry.fromfile}",
+                    f"Priority: {entry.priority}",
+                    f"MoveEntries:",
+                    "```",
+                    json.dumps(entry.moveentries, indent=4),
+                    "```",
+                    "```",
+                    json.dumps(entry.entry, indent=4),
+                    "```"
+                )
+
+                self._log_index += 1
+
             if entry.entry is None:
                 self.entries[entry.hash] = None
                 continue
@@ -399,7 +488,13 @@ class Mod:
                 path (str): Filepath for directory.
                 folder_name (str): Log name for directory
             """
-            try: mkdir(path)
+            try: 
+                mkdir(path)
+                
+                if self.LOGGING:
+                    log(f"## {self._log_index} (Folder Write):", f"Wrote {folder_name} folder.")
+
+                    self._log_index += 1
             except IsADirectoryError:
                 print(f"Skipping creating {folder_name} folder - folder already exists.")
             except FileExistsError:
@@ -425,14 +520,18 @@ class Mod:
             Returns:
                 Any|function: Either the opened file to be written to, or a lambda currying ``subdir``.
             """
-            if not subdir is None and name is None:
-                return lambda x : writefile(x, subdir)
+
+            if self.LOGGING:
+                log(f"## {self._log_index} (File Write):", f"Wrote {name}.json at {join(fp, dirname, '' if subdir is None else subdir, name + '.json')}")
+
+                self._log_index += 1
             
             return open(join(fp, dirname, "" if subdir is None else subdir, name + ".json"), "w")
 
         for odir in self.output_fp:
             try:
                 writefile("manifest", fp=odir).write(json.dumps(self.manifest, indent=4))
+
                 print("Successfully wrote manifest.json")
             except Exception as e:
                 print(f"Couldn't write manifest.json with error: {e}")
@@ -541,6 +640,21 @@ class Mod:
 
         print(f"Successfully compiled \"{self.manifest['Name']}\" at {', '.join([join(x, dirname) for x in self.output_fp])}!")
 
+        if self.LOGGING:
+            log(
+                "# End Log",f"Compiling and logging finished in {perf_counter() - self._start} seconds."
+            )
+
+            try:
+                for odir in self.output_fp:
+                    trymkdir(join(odir, dirname, "logs"), "logs")
+                    open(join(odir, dirname, "logs", f"Log-{self.manifest['Version']}.md"), "w")\
+                        .write(self._log_file)
+                    
+                print(f"Successfully wrote log file for {self.manifest['Name']}")
+            except:
+                print("Failed to write log file.")
+
         if self.AUTO_RELOAD:
             try:
                 reload_SMAPI()
@@ -596,6 +710,14 @@ class Mod:
             except Exception as e:
                 print(f"Failed to add asset ({fp}) to mod with {e.__class__.__name__}. Using directory: {abspath(fp)}.")
 
+        if self.LOGGING:
+            log(
+                f"## {self._log_index} (Fetch Image):",
+                f"Successfully fetched image from ``{fp}``"
+            )
+
+            self._log_index += 1
+
         return Entry(
             action = "Load",
             target = fpid,
@@ -604,4 +726,12 @@ class Mod:
 
 
     def RegisterContentFile(self, file: ContentFile):
+        if self.LOGGING:
+            log(
+                f"## {self._log_index} (Register Content File):",
+                f"Content file named \"{file.name}\" registered with {len(file.entries)} entries."
+            )
+
+            self._log_index += 1
+
         self.files.append(file)
