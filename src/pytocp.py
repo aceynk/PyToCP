@@ -25,9 +25,9 @@ from time import perf_counter
 import re
 import json
 
-JsonTypes = NewType("JsonTypes","str|int|list[Any]|dict[Any]")
+JsonTypes = type["str|int|list[Any]|dict[Any]"]
 """Types that json supports."""
-EntryDict = NewType("EntryDict","dict[str, list[JsonTypes]]")
+EntryDict = type["dict[str, list[JsonTypes]]"]
 """Type for the Entry Content Patcher field."""
 
 _MOD = None
