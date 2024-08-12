@@ -15,7 +15,7 @@ Important contents:
 
 from os.path import abspath, join, basename, split
 from os import mkdir, chdir
-from typing import Any, NewType
+from typing import Any
 from shutil import rmtree, copyfile
 from copy import deepcopy
 from inspect import stack
@@ -113,7 +113,7 @@ def _adv_dict_merge(dict1, dict2):
         return _new_replace(dict2, dict1)
 
     for key in dict2:
-        if isinstance(dict2[key], str) or isinstance(dict2[key], int):
+        if isinstance(dict2[key], str) or isinstance(dict2[key], int) or isinstance(dict2[key], float):
             dict1[key] = dict2[key]
 
         elif isinstance(dict2[key], list):
@@ -200,10 +200,6 @@ class Entry:
 
         if _MOD.AUTO_REGISTER:
             _MOD.Register(self)
-            
-        log = eval_entry(self)
-        if not log is None:
-            print(json.dumps(log, indent=4))
 
 
 class ContentFile:
