@@ -17,6 +17,7 @@ JsonTypes = type["str|int|list[Any]|dict[Any]"]
 """Types that json supports."""
 EntryDict = type["dict[str, list[JsonTypes]]"]
 """Type for the Entry Content Patcher field."""```
+```
 
 ## The Mod class
 
