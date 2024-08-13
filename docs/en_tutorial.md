@@ -13,11 +13,10 @@ PyToCP uses three separate classes; Mod, Entry, and ContentFile.
 These docs will also use some type aliases. Here are their definitions:
 
 ```py
-JsonTypes = str|int|list[Any]|dict[Any]
+JsonTypes = type["str|int|list[Any]|dict[Any]"]
 """Types that json supports."""
-EntryDict = dict[str, list[JsonTypes]]
-"""Type for the Entry Content Patcher field."""
-```
+EntryDict = type["dict[str, list[JsonTypes]]"]
+"""Type for the Entry Content Patcher field."""```
 
 ## The Mod class
 
