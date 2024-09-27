@@ -209,6 +209,9 @@ class ContentFile:
         self.moveentries = {}
         self.Register(*entries)
 
+        if _MOD.AUTO_REGISTER:
+            _MOD.RegisterContentFile(self)
+
     def Register(self, *entries: Entry):
         for entry in entries:
 
@@ -254,6 +257,10 @@ def Entry_Curry(
             moveentries: list[dict[str, JsonTypes]] = []
         ) -> "Entry|Any":
 
+        if not register_with is None:
+            prev_Register = deepcopy(_MOD.AUTO_REGISTER)
+            _MOD.AUTO_REGISTER = False
+
         out = to_curry(
             entry_id = _new_replace(entry_id, c_entry_id),
             entry = _adv_dict_merge(c_entry, entry),
@@ -267,6 +274,7 @@ def Entry_Curry(
         
         if not register_with is None:
             register_with.Register(out)
+            _MOD.AUTO_REGISTER = prev_Register
             
         return out
 
@@ -686,7 +694,7 @@ class Mod:
             except IsADirectoryError:
                 self._log_once("Skipping making assets folder - already exists")
             except FileExistsError:
-                print("Failed to write assets folder.")
+                self._log_once("Skipping making assets folder - already exists")
             except FileNotFoundError:
                 print("Invalid directory passed.")
             except Exception as e:
